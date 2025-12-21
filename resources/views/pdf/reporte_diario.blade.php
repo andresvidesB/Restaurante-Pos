@@ -31,11 +31,17 @@
 <body>
 
     <div class="header">
-        <h1>RESTAURANTE POS</h1>
-        <p>Reporte de Cierre de Caja</p>
-        <p>Fecha: {{ $hoy->isoFormat('D [de] MMMM, YYYY') }}</p>
-        <p>Generado a las: {{ now()->format('h:i A') }}</p>
-    </div>
+    <h1>RESTAURANTE POS</h1>
+    <p>Reporte de Ventas</p>
+    
+    @if($esRango)
+        <p><strong>Periodo:</strong> Del {{ $fechaInicio->format('d/m/Y') }} al {{ $fechaFin->format('d/m/Y') }}</p>
+    @else
+        <p><strong>Fecha:</strong> {{ $fechaInicio->isoFormat('D [de] MMMM, YYYY') }}</p>
+    @endif
+    
+    <p>Generado a las: {{ now()->format('h:i A') }}</p>
+</div>
 
     <div class="resumen-box">
         <table class="resumen-table">

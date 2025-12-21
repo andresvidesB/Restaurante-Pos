@@ -24,6 +24,15 @@ Route::post('/logout', function () {
 
 // 4. GRUPO DE RUTAS PROTEGIDAS (Requieren Login)
 Route::middleware(['auth'])->group(function () {
+
+
+    Route::get('/mermas', \App\Livewire\MermasComponent::class)->name('mermas');
+Route::get('/reporte/inventario', [\App\Http\Controllers\ReporteController::class, 'reporteInventario'])->name('reporte.inventario');
+    // Nueva pantalla de selección
+    Route::get('/reportes', \App\Livewire\ReportesComponent::class)->name('reportes.index');
+
+    // Ruta para generar el PDF (acepta parámetros)
+    Route::get('/reporte/generar', [\App\Http\Controllers\ReporteController::class, 'generarReporte'])->name('reporte.generar');
     
     // Aquí ponemos TODAS las pantallas de tu sistema
     Route::get('/dashboard', \App\Livewire\DashboardComponent::class)->name('dashboard');

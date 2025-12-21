@@ -81,18 +81,19 @@
                         @for($i=1; $i<=10; $i++) <option value="{{ $i }}">{{ $i }}</option> @endfor
                     </select>
                 </div>
+                @error('numero_mesa') <span class="text-red-500 text-xs block mt-1">Selecciona mesa</span> @enderror
             @endif
 
             @if($tipo_servicio == 'Domicilio')
                 <div class="space-y-2">
                     <div class="grid grid-cols-2 gap-2">
-                        <input wire:model="cliente_telefono" type="tel" placeholder="📱 Teléfono" class="w-full border rounded p-1.5 focus:ring-1 focus:ring-blue-500">
-                        <input wire:model="cliente_nombre" type="text" placeholder="👤 Nombre" class="w-full border rounded p-1.5 focus:ring-1 focus:ring-blue-500">
+                        <input wire:model="cliente_telefono" type="tel" placeholder="📱 Teléfono" class="w-full border rounded p-1.5 focus:ring-1 focus:ring-blue-500 text-xs">
+                        <input wire:model="cliente_nombre" type="text" placeholder="👤 Nombre" class="w-full border rounded p-1.5 focus:ring-1 focus:ring-blue-500 text-xs">
                     </div>
-                    <input wire:model="cliente_direccion" type="text" placeholder="📍 Dirección" class="w-full border rounded p-1.5 focus:ring-1 focus:ring-blue-500">
+                    <input wire:model="cliente_direccion" type="text" placeholder="📍 Dirección" class="w-full border rounded p-1.5 focus:ring-1 focus:ring-blue-500 text-xs">
                     <div class="flex items-center gap-2 pt-1">
                         <label class="font-bold text-blue-800 uppercase text-xs">Envío:</label>
-                        <input wire:model.live="costo_envio" type="number" class="w-20 border rounded p-1 text-right font-bold text-gray-700">
+                        <input wire:model.live="costo_envio" type="number" class="w-20 border rounded p-1 text-right font-bold text-gray-700 text-xs">
                     </div>
                     @error('cliente_telefono') <span class="text-red-500 text-xs block">{{ $message }}</span> @enderror
                     @error('cliente_nombre') <span class="text-red-500 text-xs block">{{ $message }}</span> @enderror
@@ -104,20 +105,47 @@
         <div class="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50">
             @if(count($carrito) > 0)
                 @foreach($carrito as $id => $item)
-                <div class="flex justify-between items-center border-b border-gray-200 pb-2 bg-white p-2 rounded shadow-sm">
-                    <div class="flex-1 overflow-hidden">
-                        <h4 class="font-bold text-gray-700 text-sm truncate">{{ $item['nombre'] }}</h4>
-                        <div class="text-xs text-gray-500">${{ number_format($item['precio'], 0) }}</div>
+                <div class="border-b border-gray-200 pb-2 bg-white p-2 rounded shadow-sm relative" x-data="{ showNote: false }">
+                    
+                    <div class="flex justify-between items-center mb-1">
+                        <div class="flex-1 overflow-hidden">
+                            <h4 class="font-bold text-gray-700 text-sm truncate">{{ $item['nombre'] }}</h4>
+                            <div class="text-xs text-gray-500">${{ number_format($item['precio'], 0) }}</div>
+                        </div>
+                        <div class="flex items-center gap-2 mx-2">
+                            <button wire:click="decrement({{ $id }})" class="w-6 h-6 rounded bg-gray-100 text-gray-600 font-bold flex items-center justify-center">-</button>
+                            <span class="font-bold text-sm w-4 text-center">{{ $item['cantidad'] }}</span>
+                            <button wire:click="increment({{ $id }})" class="w-6 h-6 rounded bg-blue-100 text-blue-600 font-bold flex items-center justify-center">+</button>
+                        </div>
+                        <div class="text-right font-bold text-gray-700 text-sm w-16">
+                            ${{ number_format($item['precio'] * $item['cantidad'], 0) }}
+                        </div>
+                        <button wire:click="removeItem({{ $id }})" class="text-gray-400 hover:text-red-500 ml-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
                     </div>
-                    <div class="flex items-center gap-2 mx-2">
-                        <button wire:click="decrement({{ $id }})" class="w-7 h-7 rounded bg-gray-100 text-gray-600 font-bold text-lg flex items-center justify-center">-</button>
-                        <span class="font-bold text-sm w-4 text-center">{{ $item['cantidad'] }}</span>
-                        <button wire:click="increment({{ $id }})" class="w-7 h-7 rounded bg-blue-100 text-blue-600 font-bold text-lg flex items-center justify-center">+</button>
+
+                    <div class="mt-1">
+                        @if(!empty($item['observacion']))
+                            <input type="text" 
+                                   wire:model.blur="carrito.{{ $id }}.observacion" 
+                                   class="w-full text-xs border-b border-gray-300 focus:border-blue-500 outline-none text-gray-600 italic bg-transparent placeholder-gray-400" 
+                                   placeholder="Nota...">
+                        @else
+                            <button @click="showNote = !showNote" class="text-[10px] text-blue-500 hover:text-blue-700 flex items-center cursor-pointer">
+                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                Nota
+                            </button>
+                            
+                            <div x-show="showNote" style="display: none;" class="mt-1">
+                                <input type="text" 
+                                       wire:model.blur="carrito.{{ $id }}.observacion" 
+                                       class="w-full text-xs border rounded px-2 py-1 focus:ring-1 focus:ring-blue-500 outline-none text-gray-600" 
+                                       placeholder="Ej: Sin cebolla...">
+                            </div>
+                        @endif
                     </div>
-                    <div class="text-right font-bold text-gray-700 text-sm w-16">
-                        ${{ number_format($item['precio'] * $item['cantidad'], 0) }}
-                    </div>
-                    <button wire:click="removeItem({{ $id }})" class="text-gray-400 hover:text-red-500 p-1"><span class="text-xl">×</span></button>
+
                 </div>
                 @endforeach
             @else
@@ -147,7 +175,7 @@
             </div>
 
             <div class="grid grid-cols-2 gap-2 mb-2">
-                <select wire:model="metodo_pago" class="border rounded p-1.5 text-sm bg-gray-50">
+                <select wire:model="metodo_pago" class="border rounded p-1.5 text-sm bg-gray-50 font-medium">
                     <option value="Efectivo">💵 Efectivo</option>
                     <option value="Tarjeta">💳 Tarjeta</option>
                     <option value="Nequi/Daviplata">📱 Nequi</option>

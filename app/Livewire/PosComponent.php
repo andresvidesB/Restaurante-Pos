@@ -74,7 +74,8 @@ class PosComponent extends Component
                 'precio' => $producto->precio,
                 'cantidad' => 1,
                 'imagen' => $producto->imagen,
-                'categoria' => $producto->categoria->nombre ?? ''
+                'categoria' => $producto->categoria->nombre ?? '',
+                'observacion' => ''
             ];
         }
         $this->calcularTotal();
@@ -192,7 +193,8 @@ class PosComponent extends Component
                         'producto_id' => $item['id'],
                         'cantidad' => $item['cantidad'],
                         'precio_unitario' => $item['precio'],
-                        'subtotal' => $item['precio'] * $item['cantidad']
+                        'subtotal' => $item['precio'] * $item['cantidad'],
+                        'observacion' => $item['observacion'] ?? null
                     ]);
 
                     // Descontar Stock (Receta)

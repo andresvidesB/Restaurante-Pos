@@ -14,7 +14,8 @@ class DetalleVenta extends Model
         'producto_id',
         'cantidad',
         'precio_unitario',
-        'subtotal'
+        'subtotal',
+        'observacion'
     ];
 
     // Relación 1: Este detalle pertenece a una Venta
