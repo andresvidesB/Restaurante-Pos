@@ -62,12 +62,32 @@ class PosComponent extends Component
     // --- LOGICA CARRITO ---
     public function addToCart($productoId)
     {
-        $producto = Producto::find($productoId);
+        $producto = Producto::with('insumos')->find($productoId);
         
+        // --- INICIO BLOQUEO STOCK ---
+        // Verificamos si tiene receta y si alcanzan los ingredientes
+        if($producto->insumos->count() > 0) {
+            foreach($producto->insumos as $insumo) {
+                // Cantidad que necesito para 1 producto
+                $necesario = $insumo->pivot->cantidad_requerida;
+                
+                // Si ya tengo este producto en el carrito, sumo lo que ya llevo
+                $enCarrito = isset($this->carrito[$productoId]) ? $this->carrito[$productoId]['cantidad'] : 0;
+                $totalNecesario = ($enCarrito + 1) * $necesario;
+
+                if($insumo->stock_actual < $totalNecesario) {
+                    // SI FALTA STOCK: Mandamos error y PARAMOS TODO
+                    session()->flash('mensaje', "🚫 NO HAY STOCK: Falta '{$insumo->nombre}'. Stock actual: {$insumo->stock_actual}");
+                    return; 
+                }
+            }
+        }
+        // --- FIN BLOQUEO STOCK ---
+
+        // Si pasa la validación, sigue el código normal...
         if(isset($this->carrito[$productoId])) {
             $this->carrito[$productoId]['cantidad']++;
         } else {
-            // Agregamos al carrito con datos visuales
             $this->carrito[$productoId] = [
                 'id' => $producto->id,
                 'nombre' => $producto->nombre,
@@ -75,7 +95,7 @@ class PosComponent extends Component
                 'cantidad' => 1,
                 'imagen' => $producto->imagen,
                 'categoria' => $producto->categoria->nombre ?? '',
-                'observacion' => ''
+                'observacion' => '' 
             ];
         }
         $this->calcularTotal();

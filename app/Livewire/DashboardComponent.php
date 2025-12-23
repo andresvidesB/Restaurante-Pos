@@ -4,89 +4,133 @@ namespace App\Livewire;
 
 use Livewire\Component;
 use App\Models\Venta;
+use App\Models\Producto;
+use App\Models\Caja;
+use App\Models\Gasto;
 use App\Models\DetalleVenta;
 use App\Models\Insumo;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class DashboardComponent extends Component
 {
-    // 1. Variables para las Tarjetas (KPIs)
-    public $ventasHoy;          // Cantidad de pedidos (ej: 15)
-    public $ingresosTotal;      // Dinero total (ej: $500.000)
-    public $ingresosEfectivo;   // Solo billetes físicos
-    public $ingresosDigital;    // Nequi, Tarjeta, Transferencia
-    public $productosBajosStock;// Cuántos insumos están en alerta
-
-    // 2. Variables para las Gráficas
-    public $diasSemana = [];
-    public $montosSemana = [];
-    public $topProductosNombres = [];
-    public $topProductosCantidades = [];
+    // --- VARIABLES DE CAJA Y GASTOS ---
+    public $cajaAbierta = null;
+    public $monto_inicial = 0;
+    
+    // Variables del Modal de Gastos
+    public $descripcion_gasto, $monto_gasto;
+    public $mostrarModalGasto = false;
 
     public function mount()
     {
-        // Fecha de hoy (inicio del día 00:00:00)
-        $hoy = Carbon::today();
+        // Verificar si hay caja abierta del usuario actual
+        $this->cajaAbierta = Caja::where('user_id', auth()->id())
+                                 ->where('estado', 'Abierta')
+                                 ->first();
+    }
 
-        // --- A. CÁLCULO DE TARJETAS (KPIs) ---
-        
-        // Contar pedidos de hoy
-        $this->ventasHoy = Venta::whereDate('created_at', $hoy)->count();
+    // --- ACCIONES DE CAJA ---
+    public function abrirCaja()
+    {
+        $this->validate(['monto_inicial' => 'required|numeric|min:0']);
 
-        // Sumar TOTAL general vendido hoy
-        $this->ingresosTotal = Venta::whereDate('created_at', $hoy)->sum('total');
+        Caja::create([
+            'user_id' => auth()->id(),
+            'monto_inicial' => $this->monto_inicial,
+            'fecha_apertura' => now(),
+            'estado' => 'Abierta'
+        ]);
 
-        // Sumar SOLO Efectivo
-        $this->ingresosEfectivo = Venta::whereDate('created_at', $hoy)
-                                       ->where('metodo_pago', 'Efectivo')
-                                       ->sum('total');
+        return redirect()->route('dashboard');
+    }
 
-        // Sumar SOLO Digital (Array con los otros métodos)
-        $this->ingresosDigital = Venta::whereDate('created_at', $hoy)
-                                      ->whereIn('metodo_pago', ['Tarjeta', 'Transferencia', 'Nequi/Daviplata'])
-                                      ->sum('total');
+    public function cerrarCaja()
+    {
+        if(!$this->cajaAbierta) return;
 
-        // Contar alertas de stock (Donde stock actual <= stock mínimo)
-        $this->productosBajosStock = Insumo::whereColumn('stock_actual', '<=', 'stock_minimo')->count();
+        $this->cajaAbierta->update([
+            'fecha_cierre' => now(),
+            'estado' => 'Cerrada',
+            'monto_final' => 0 // Aquí luego podrás guardar el arqueo real
+        ]);
 
+        return redirect()->route('dashboard');
+    }
 
-        // --- B. DATOS PARA GRÁFICA DE VENTAS (Últimos 7 días) ---
-        for ($i = 6; $i >= 0; $i--) {
-            // Obtenemos la fecha de hace $i días
-            $fecha = Carbon::now()->subDays($i);
+    public function registrarGasto()
+    {
+        $this->validate([
+            'descripcion_gasto' => 'required',
+            'monto_gasto' => 'required|numeric|min:1'
+        ]);
+
+        if($this->cajaAbierta) {
+            Gasto::create([
+                'caja_id' => $this->cajaAbierta->id,
+                'descripcion' => $this->descripcion_gasto,
+                'monto' => $this->monto_gasto
+            ]);
             
-            // Guardamos el nombre del día (Ej: Lun 12)
-            // Nota: Si tu servidor está en inglés saldrá "Mon 12", se puede configurar idioma en config/app.php
-            $this->diasSemana[] = $fecha->format('d/m'); 
-            
-            // Sumamos las ventas de ese día específico
-            $monto = Venta::whereDate('created_at', $fecha->format('Y-m-d'))->sum('total');
-            $this->montosSemana[] = $monto;
-        }
-
-
-        // --- C. DATOS PARA TOP 5 PRODUCTOS MÁS VENDIDOS ---
-        // Hacemos una consulta agrupada para sumar cantidades por producto
-        $topProductos = DetalleVenta::select('producto_id', DB::raw('sum(cantidad) as total_vendido'))
-            ->groupBy('producto_id')
-            ->orderByDesc('total_vendido')
-            ->take(5)
-            ->with('producto') // Cargamos la relación para obtener el nombre
-            ->get();
-
-        // Separamos los datos para que ApexCharts los entienda
-        foreach ($topProductos as $item) {
-            // Validamos que el producto exista (por si se borró)
-            if($item->producto) {
-                $this->topProductosNombres[] = $item->producto->nombre;
-                $this->topProductosCantidades[] = $item->total_vendido;
-            }
+            $this->reset(['descripcion_gasto', 'monto_gasto', 'mostrarModalGasto']);
+            session()->flash('mensaje', 'Gasto registrado correctamente.');
         }
     }
 
     public function render()
     {
-        return view('livewire.dashboard-component')->layout('layouts.app');
+        $hoy = Carbon::today();
+
+        // 1. KPIs Principales (Tarjetas)
+        $ventasHoyCollection = Venta::whereDate('created_at', $hoy)->where('estado', '!=', 'Anulado')->get();
+        
+        $ingresosTotal = $ventasHoyCollection->sum('total');
+        $ventasHoy = $ventasHoyCollection->count();
+        
+        // Efectivo vs Digital
+        $ingresosEfectivo = $ventasHoyCollection->where('metodo_pago', 'Efectivo')->sum('total');
+        $ingresosDigital = $ventasHoyCollection->whereIn('metodo_pago', ['Tarjeta', 'Nequi/Daviplata', 'Transferencia'])->sum('total');
+
+        // Stock Bajo (Alerta)
+        $productosBajosStock = Insumo::whereColumn('stock_actual', '<=', 'stock_minimo')->count();
+
+        // Gastos del día
+        $gastosHoy = 0;
+        if($this->cajaAbierta) {
+            $gastosHoy = $this->cajaAbierta->gastos()->sum('monto');
+        }
+
+        // 2. DATOS PARA GRÁFICA DE VENTAS (Últimos 7 días)
+        $montosSemana = [];
+        $diasSemana = [];
+        
+        for ($i = 6; $i >= 0; $i--) {
+            $fecha = Carbon::now()->subDays($i);
+            $sumaDia = Venta::whereDate('created_at', $fecha->format('Y-m-d'))
+                            ->where('estado', '!=', 'Anulado')
+                            ->sum('total');
+            
+            $montosSemana[] = $sumaDia;
+            $diasSemana[] = $fecha->format('d/m');
+        }
+
+        // 3. DATOS PARA TOP PRODUCTOS
+        $topProductos = DetalleVenta::select('producto_id', DB::raw('sum(cantidad) as total_qty'))
+            ->whereHas('venta', function($q){ $q->where('estado', '!=', 'Anulado'); })
+            ->groupBy('producto_id')
+            ->orderByDesc('total_qty')
+            ->take(5)
+            ->with('producto')
+            ->get();
+
+        $topProductosNombres = $topProductos->map(fn($item) => $item->producto->nombre)->toArray();
+        $topProductosCantidades = $topProductos->pluck('total_qty')->toArray();
+
+        return view('livewire.dashboard-component', compact(
+            'ingresosTotal', 'ventasHoy', 'ingresosEfectivo', 'ingresosDigital', 
+            'productosBajosStock', 'gastosHoy',
+            'montosSemana', 'diasSemana',
+            'topProductosNombres', 'topProductosCantidades'
+        ))->layout('layouts.app');
     }
 }
