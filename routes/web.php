@@ -5,14 +5,17 @@ use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\TicketController;
 use Illuminate\Http\Request;
 use App\Livewire\MenuPublico;
+use App\Livewire\CartComponent;
+use App\Livewire\PaymentComponent;
 
 // ==========================================
 // 1. RUTAS PÚBLICAS E INVITADOS
 // ==========================================
 
 // Menú digital para clientes
+Route::get('/pedido/{order}/pago', PaymentComponent::class)->name('order.pay');
 Route::get('/', MenuPublico::class)->name('home');
-
+Route::get('/carrito', CartComponent::class)->name('cart');
 Route::middleware('guest')->group(function () {
     Route::get('/login', \App\Livewire\LoginComponent::class)->name('login');
     Route::get('/registro', \App\Livewire\RegisterComponent::class)->name('register');
