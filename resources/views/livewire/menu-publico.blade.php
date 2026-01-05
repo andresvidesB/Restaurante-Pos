@@ -11,8 +11,6 @@
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #ea580c; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #333; }
-        
-        /* Animación de entrada del carrito */
         .slide-in-right { animation: slideIn 0.3s ease-out forwards; }
         @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
     </style>
@@ -28,7 +26,11 @@
                 <div class="flex items-center space-x-4">
                     @auth
                         <div class="flex items-center gap-4">
+                            <a href="{{ route('mis-pedidos') }}" class="text-xs font-bold text-gray-400 hover:text-orange-500 transition mr-2 hidden sm:block">
+            Mis Pedidos
+        </a>
                             <span class="text-xs font-bold text-gray-400 hidden sm:block">{{ auth()->user()->name }}</span>
+
                             <button wire:click="logout" class="text-xs font-medium text-orange-500 hover:text-white border border-orange-500/30 px-3 py-1 rounded-full transition">Salir</button>
                         </div>
                     @else
@@ -193,52 +195,59 @@
 
                     @if($pasoCheckout == 2)
                         <div class="space-y-6">
-                            <div class="bg-orange-900/20 border border-orange-500/30 p-4 rounded-xl">
-                                <h3 class="text-orange-500 font-black text-sm uppercase mb-2">Método de Entrega</h3>
-                                <div class="flex gap-2">
-                                    <button wire:click="$set('tipoEntrega', 'recogida')" class="flex-1 py-2 rounded-lg text-xs font-bold uppercase border transition {{ $tipoEntrega == 'recogida' ? 'bg-orange-600 text-white border-orange-600' : 'bg-transparent text-gray-400 border-white/10 hover:border-white/30' }}">
+                            
+                            {{-- SECCIÓN MÉTODO DE ENTREGA (Estilo Compacto) --}}
+                            <div class="bg-[#222] p-2 rounded-xl border border-white/5">
+                                <h3 class="text-gray-500 font-bold text-[10px] uppercase mb-2 ml-1">Método de Entrega</h3>
+                                <div class="flex bg-black/40 p-1 rounded-lg border border-white/5">
+                                    <button wire:click="$set('tipoEntrega', 'recogida')" 
+                                        class="flex-1 py-2 rounded-md text-[10px] font-black uppercase transition-all duration-300 {{ $tipoEntrega == 'recogida' ? 'bg-orange-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300' }}">
                                         Recogida
                                     </button>
-                                    <button wire:click="$set('tipoEntrega', 'domicilio')" class="flex-1 py-2 rounded-lg text-xs font-bold uppercase border transition {{ $tipoEntrega == 'domicilio' ? 'bg-orange-600 text-white border-orange-600' : 'bg-transparent text-gray-400 border-white/10 hover:border-white/30' }}">
+                                    <button wire:click="$set('tipoEntrega', 'domicilio')" 
+                                        class="flex-1 py-2 rounded-md text-[10px] font-black uppercase transition-all duration-300 {{ $tipoEntrega == 'domicilio' ? 'bg-orange-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300' }}">
                                         Domicilio
                                     </button>
                                 </div>
                             </div>
 
+                            {{-- FORMULARIO DATOS --}}
                             <div class="space-y-4">
-                                <h3 class="text-white font-bold text-sm uppercase">Tus Datos</h3>
+                                <h3 class="text-white font-bold text-sm uppercase border-b border-white/5 pb-2">Tus Datos</h3>
                                 
-                                <div>
-                                    <label class="block text-[10px] uppercase font-bold text-gray-500 mb-1 ml-1">Nombre Completo</label>
-                                    <input wire:model="nombre_cliente" type="text" class="w-full bg-[#222] border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none" placeholder="Ej: Juan Pérez">
-                                    @error('nombre_cliente') <span class="text-red-500 text-[10px] ml-1">{{ $message }}</span> @enderror
+                                <div class="grid grid-cols-1 gap-3">
+                                    <div>
+                                        <label class="block text-[10px] uppercase font-bold text-gray-500 mb-1">Nombre</label>
+                                        <input wire:model="nombre_cliente" type="text" class="w-full bg-[#222] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none" placeholder="Nombre completo">
+                                        @error('nombre_cliente') <span class="text-red-500 text-[10px]">{{ $message }}</span> @enderror
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-[10px] uppercase font-bold text-gray-500 mb-1">Teléfono</label>
+                                        <input wire:model="telefono_cliente" type="tel" class="w-full bg-[#222] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none" placeholder="Ej: 300 123 4567">
+                                        @error('telefono_cliente') <span class="text-red-500 text-[10px]">{{ $message }}</span> @enderror
+                                    </div>
                                 </div>
 
+                                {{-- NOTA --}}
                                 <div>
-                                    <label class="block text-[10px] uppercase font-bold text-gray-500 mb-1 ml-1">Teléfono / WhatsApp</label>
-                                    <input wire:model="telefono_cliente" type="tel" class="w-full bg-[#222] border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none" placeholder="Ej: 300 123 4567">
-                                    @error('telefono_cliente') <span class="text-red-500 text-[10px] ml-1">{{ $message }}</span> @enderror
+                                    <label class="block text-[10px] uppercase font-bold text-orange-500 mb-1">📝 Nota / Instrucciones</label>
+                                    <textarea wire:model="nota_cliente" rows="2" class="w-full bg-[#222] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none resize-none" placeholder="Opcional: Sin cebolla, etc..."></textarea>
                                 </div>
 
                                 @if($tipoEntrega == 'domicilio')
-                                    <div class="animate-fadeIn">
-                                        <div class="mb-4">
-                                            <label class="block text-[10px] uppercase font-bold text-gray-500 mb-1 ml-1">Barrio</label>
-                                            <input wire:model="barrio_cliente" type="text" class="w-full bg-[#222] border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none" placeholder="Ej: Centro">
-                                            @error('barrio_cliente') <span class="text-red-500 text-[10px] ml-1">{{ $message }}</span> @enderror
+                                    <div class="animate-fadeIn p-3 bg-black/20 rounded-xl border border-white/5 space-y-3">
+                                        <div>
+                                            <label class="block text-[10px] uppercase font-bold text-gray-500 mb-1">Barrio</label>
+                                            <input wire:model="barrio_cliente" type="text" class="w-full bg-[#222] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-orange-500 outline-none" placeholder="Barrio">
+                                            @error('barrio_cliente') <span class="text-red-500 text-[10px]">{{ $message }}</span> @enderror
                                         </div>
                                         <div>
-                                            <label class="block text-[10px] uppercase font-bold text-gray-500 mb-1 ml-1">Dirección Exacta</label>
-                                            <input wire:model="direccion_cliente" type="text" class="w-full bg-[#222] border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none" placeholder="Ej: Calle 10 # 5-20">
-                                            @error('direccion_cliente') <span class="text-red-500 text-[10px] ml-1">{{ $message }}</span> @enderror
+                                            <label class="block text-[10px] uppercase font-bold text-gray-500 mb-1">Dirección</label>
+                                            <input wire:model="direccion_cliente" type="text" class="w-full bg-[#222] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-orange-500 outline-none" placeholder="Dirección exacta">
+                                            @error('direccion_cliente') <span class="text-red-500 text-[10px]">{{ $message }}</span> @enderror
                                         </div>
-                                        
-                                        <div class="mt-4 p-3 bg-blue-900/20 border border-blue-500/20 rounded-xl flex gap-3 items-start">
-                                            <svg class="w-5 h-5 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                            <p class="text-[10px] text-blue-200 leading-relaxed">
-                                                <strong>Importante:</strong> El costo del domicilio NO está incluido en el total. Te lo informaremos al confirmar tu pedido por WhatsApp.
-                                            </p>
-                                        </div>
+                                        <p class="text-[10px] text-blue-300 italic">* El costo del envío se confirma por WhatsApp.</p>
                                     </div>
                                 @endif
                             </div>
@@ -250,26 +259,49 @@
 
             @if(count($carrito) > 0)
                 <div class="p-6 bg-[#161616] border-t border-white/5">
-                    <div class="flex justify-between items-end mb-4">
-                        <span class="text-gray-400 text-xs font-bold uppercase tracking-widest">Total Productos</span>
-                        <span class="text-2xl font-black text-white">${{ number_format($this->subtotal, 0) }}</span>
-                    </div>
-
+                    
                     @if($pasoCheckout == 1)
-                        <button wire:click="irAlPaso2" class="w-full bg-white text-black font-black uppercase tracking-widest py-4 rounded-xl hover:bg-orange-600 hover:text-white transition duration-300 shadow-xl flex items-center justify-center gap-2">
+                        <div class="flex justify-between items-end mb-4">
+                            <span class="text-gray-400 text-xs font-bold uppercase tracking-widest">Total</span>
+                            <span class="text-2xl font-black text-white">${{ number_format($this->subtotal, 0) }}</span>
+                        </div>
+                        <button wire:click="irAlPaso2" class="w-full bg-white text-black font-black uppercase tracking-widest py-3 rounded-xl hover:bg-orange-600 hover:text-white transition duration-300 shadow-xl flex items-center justify-center gap-2">
                             Continuar
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                         </button>
                     @else
-                        <div class="flex gap-3">
-                            <button wire:click="volverAlPaso1" class="w-1/3 bg-[#222] text-white font-bold uppercase tracking-widest py-4 rounded-xl hover:bg-[#333] transition border border-white/10">
-                                Volver
-                            </button>
-                            <button wire:click="finalizarPedido" class="w-2/3 bg-green-600 text-white font-black uppercase tracking-widest py-4 rounded-xl hover:bg-green-500 transition shadow-xl flex items-center justify-center gap-2">
-                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-8.683-2.031-9.676-.272-.099-.47-.149-.669-.149-.198 0-.42.001-.643.001-.223 0-.583.084-.89.421-.307.337-1.178 1.151-1.178 2.809 0 1.658 1.208 3.26 1.376 3.483.169.223 2.376 3.63 5.756 5.09 2.197.949 2.645.761 3.116.713.471-.048 1.511-.618 1.724-1.214.214-.595.214-1.106.149-1.214z"/></svg>
-                                Pedir
-                            </button>
+                        <div class="space-y-4">
                             
+                            {{-- SECCIÓN PAGO (Horizontal y Compacta) --}}
+                            <div>
+                                <label class="block text-[10px] uppercase font-bold text-gray-500 mb-2">Método de Pago</label>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <button wire:click="$set('metodo_pago', 'efectivo')" 
+                                        class="flex items-center justify-center gap-2 py-2.5 px-2 rounded-xl border transition-all {{ $metodo_pago == 'efectivo' ? 'bg-green-600/20 border-green-500 text-green-400' : 'bg-[#222] border-white/10 text-gray-400 hover:bg-[#2a2a2a]' }}">
+                                        <span class="text-lg">💵</span>
+                                        <span class="text-[10px] font-black uppercase">Efectivo</span>
+                                    </button>
+
+                                    <button wire:click="$set('metodo_pago', 'transferencia')" 
+                                        class="flex items-center justify-center gap-2 py-2.5 px-2 rounded-xl border transition-all {{ $metodo_pago == 'transferencia' ? 'bg-purple-600/20 border-purple-500 text-purple-400' : 'bg-[#222] border-white/10 text-gray-400 hover:bg-[#2a2a2a]' }}">
+                                        <span class="text-lg">📱</span>
+                                        <span class="text-[10px] font-black uppercase">Transf.</span>
+                                    </button>
+                                </div>
+                                @if($metodo_pago == 'transferencia')
+                                    <p class="text-[9px] text-purple-400 mt-1 text-center opacity-80">Se generará un link para subir comprobante.</p>
+                                @endif
+                            </div>
+
+                            <div class="flex gap-2 pt-2 border-t border-white/10">
+                                <button wire:click="volverAlPaso1" class="px-4 bg-[#222] text-white font-bold uppercase py-3 rounded-xl hover:bg-[#333] transition border border-white/10 text-xs">
+                                    ←
+                                </button>
+                                <button wire:click="finalizarPedido" class="flex-1 bg-green-600 text-white font-black uppercase tracking-widest py-3 rounded-xl hover:bg-green-500 transition shadow-xl flex items-center justify-center gap-2 text-sm">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-8.683-2.031-9.676-.272-.099-.47-.149-.669-.149-.198 0-.42.001-.643.001-.223 0-.583.084-.89.421-.307.337-1.178 1.151-1.178 2.809 0 1.658 1.208 3.26 1.376 3.483.169.223 2.376 3.63 5.756 5.09 2.197.949 2.645.761 3.116.713.471-.048 1.511-.618 1.724-1.214.214-.595.214-1.106.149-1.214z"/></svg>
+                                    Pedir ${{ number_format($this->subtotal, 0) }}
+                                </button>
+                            </div>
                         </div>
                     @endif
                 </div>
@@ -281,5 +313,4 @@
     <footer class="bg-black text-gray-500 py-8 text-center text-xs border-t border-white/5">
         <p>&copy; 2026 GOURMET CARBÓN. TODOS LOS DERECHOS RESERVADOS.</p>
     </footer>
-    
 </div>

@@ -5,32 +5,38 @@ namespace App\Livewire;
 use Livewire\Component;
 use App\Models\Categoria;
 use App\Models\Producto;
+use App\Models\Order;
+use App\Models\OrderDetail;
+use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Auth;
 
 class MenuPublico extends Component
 {
     // DATOS DE SESIÓN Y CONFIGURACIÓN
     public $carrito = [];
     public $tipoEntrega = 'recogida';
+    public $metodo_pago = 'efectivo'; // Default
     public $categoriaSeleccionada = 0;
     
     // ESTADO DE LA INTERFAZ
-    public $mostrarCarrito = false; // Para minimizar/maximizar
-    public $pasoCheckout = 1;       // 1 = Revisar Carrito, 2 = Datos Cliente
+    public $mostrarCarrito = false; 
+    public $pasoCheckout = 1;       
 
     // DATOS DEL CLIENTE
     public $nombre_cliente;
     public $telefono_cliente;
     public $barrio_cliente;
     public $direccion_cliente;
+    public $nota_cliente = ''; // Nueva variable para notas
 
     public function mount()
     {
-        $this->carrito = session()->get('carrito', []);
-        $this->tipoEntrega = session()->get('tipoEntrega', 'recogida');
+        $this->carrito = Session::get('carrito', []);
+        $this->tipoEntrega = Session::get('tipoEntrega', 'recogida');
         
-        // Si hay items, mostramos el carrito al entrar (opcional)
-        if(count($this->carrito) > 0) {
-            $this->mostrarCarrito = true;
+        // Si el usuario ya inició sesión, precargamos su nombre
+        if(Auth::check()) {
+            $this->nombre_cliente = Auth::user()->name;
         }
     }
 
@@ -43,13 +49,15 @@ class MenuPublico extends Component
                             ->take(5)->get();
 
         $query = Producto::where('activo', true);
+        
         if ($this->categoriaSeleccionada > 0) {
             $query->where('categoria_id', $this->categoriaSeleccionada);
         }
+        
         $productos = $query->orderBy('nombre')->get();
 
         return view('livewire.menu-publico', compact('categorias', 'productos', 'ofertas'))
-                ->layout('layouts.guest'); 
+                ->layout('layouts.guest'); // Aseguramos el diseño oscuro
     }
 
     // --- GESTIÓN DEL CARRITO ---
@@ -67,7 +75,11 @@ class MenuPublico extends Component
         if (isset($this->carrito[$productoId])) {
             $this->carrito[$productoId]['cantidad']++;
         } else {
-            $precio = ($producto->es_oferta && $producto->precio_oferta) ? $producto->precio_oferta : $producto->precio;
+            // Usamos precio de oferta si existe, sino el normal
+            $precio = ($producto->es_oferta && $producto->precio_oferta > 0) 
+                      ? $producto->precio_oferta 
+                      : $producto->precio;
+
             $this->carrito[$productoId] = [
                 'id' => $producto->id,
                 'nombre' => $producto->nombre,
@@ -77,8 +89,7 @@ class MenuPublico extends Component
             ];
         }
         $this->guardarCarrito();
-        $this->mostrarCarrito = true; // Abrir carrito al agregar
-        session()->flash('mensaje', '¡Agregado!');
+        $this->mostrarCarrito = true; // Abrir carrito automáticamente al agregar
     }
 
     public function incrementarCantidad($id)
@@ -95,7 +106,7 @@ class MenuPublico extends Component
             if($this->carrito[$id]['cantidad'] > 1) {
                 $this->carrito[$id]['cantidad']--;
             } else {
-                unset($this->carrito[$id]); // Si baja de 1, se elimina
+                unset($this->carrito[$id]); 
             }
             $this->guardarCarrito();
         }
@@ -105,6 +116,16 @@ class MenuPublico extends Component
     {
         unset($this->carrito[$id]);
         $this->guardarCarrito();
+    }
+
+    private function guardarCarrito()
+    {
+        Session::put('carrito', $this->carrito);
+    }
+
+    public function getSubtotalProperty()
+    {
+        return collect($this->carrito)->sum(fn($item) => $item['precio'] * $item['cantidad']);
     }
 
     // --- PROCESO DE CHECKOUT ---
@@ -122,15 +143,32 @@ class MenuPublico extends Component
 
     public function updatedTipoEntrega($value)
     {
-        session()->put('tipoEntrega', $value);
+        Session::put('tipoEntrega', $value);
     }
+
+    public function filtrarCategoria($id)
+    {
+        $this->categoriaSeleccionada = $id;
+    }
+
+    public function logout() 
+    {
+        Auth::logout();
+        Session::invalidate();
+        Session::regenerateToken();
+        return redirect()->route('login');
+    }
+
+    // --- FINALIZAR PEDIDO (CREAR ORDEN Y WHATSAPP) ---
 
     public function finalizarPedido()
     {
-        // 1. Validación de campos
+        // 1. Validaciones
         $reglas = [
             'nombre_cliente' => 'required|min:3',
-            'telefono_cliente' => 'required|min:7',
+            'telefono_cliente' => 'required',
+            'metodo_pago' => 'required|in:efectivo,transferencia',
+            'nota_cliente' => 'nullable|max:500'
         ];
 
         if($this->tipoEntrega === 'domicilio') {
@@ -139,67 +177,82 @@ class MenuPublico extends Component
         }
 
         $this->validate($reglas, [
-            'required' => 'Este campo es obligatorio.',
+            'required' => 'Campo obligatorio.',
             'min' => 'Muy corto.'
         ]);
 
-        // 2. Construir Mensaje para WhatsApp
-        $mensaje = "*¡HOLA! QUIERO REALIZAR UN PEDIDO WEB* 🔥\n\n";
-        $mensaje .= "*Nombre:* " . $this->nombre_cliente . "\n";
-        $mensaje .= "*Teléfono:* " . $this->telefono_cliente . "\n";
-        $mensaje .= "*Tipo:* " . strtoupper($this->tipoEntrega) . "\n";
+        // 2. Crear la Orden en Base de Datos
+        // Esto genera el ID necesario para el link de pago
+        $order = Order::create([
+            'user_id' => Auth::id() ?? null,
+            'total' => $this->subtotal,
+            'delivery_cost' => 0, // Se definirá por chat o en el paso de pago
+            'total_with_delivery' => $this->subtotal, 
+            'status' => 'pendiente',
+            'notes' => $this->nota_cliente,
+            'payment_method' => $this->metodo_pago
+        ]);
+
+        // 3. Guardar Detalles de la Orden
+        foreach ($this->carrito as $item) {
+            OrderDetail::create([
+                'order_id' => $order->id,
+                'product_id' => $item['id'],
+                'product_name' => $item['nombre'],
+                'quantity' => $item['cantidad'],
+                'price' => $item['precio']
+            ]);
+        }
+
+        // 4. Generar Link de Pago (Solo si es transferencia)
+        $paymentLink = route('order.pay', $order->id);
+
+        // 5. Construir Mensaje para WhatsApp
+        $msg = "🔥 *NUEVO PEDIDO #{$order->id}* 🔥\n\n";
+        $msg .= "👤 *Cliente:* {$this->nombre_cliente}\n";
+        $msg .= "📱 *Tel:* {$this->telefono_cliente}\n";
+        $msg .= "🛵 *Entrega:* " . strtoupper($this->tipoEntrega) . "\n";
         
         if($this->tipoEntrega === 'domicilio') {
-            $mensaje .= "*Dirección:* " . $this->direccion_cliente . "\n";
-            $mensaje .= "*Barrio:* " . $this->barrio_cliente . "\n";
+            $msg .= "📍 *Dir:* {$this->barrio_cliente} - {$this->direccion_cliente}\n";
         }
 
-        $mensaje .= "\n--------------------------------\n";
-        $mensaje .= "*DETALLE DEL PEDIDO:*\n";
-        
-        foreach($this->carrito as $item) {
-            $subtotal = $item['precio'] * $item['cantidad'];
-            $mensaje .= "• (" . $item['cantidad'] . "x) " . $item['nombre'] . " - $" . number_format($subtotal, 0) . "\n";
+        $msg .= "\n--------------------------------\n";
+        $msg .= "*DETALLE DEL PEDIDO:*\n";
+        foreach ($this->carrito as $item) {
+            $subtotalItem = $item['precio'] * $item['cantidad'];
+            $msg .= "▪ {$item['cantidad']}x {$item['nombre']} \n";
+        }
+        $msg .= "--------------------------------\n";
+
+        if($this->nota_cliente){
+            $msg .= "📝 *NOTA:* {$this->nota_cliente}\n";
+            $msg .= "--------------------------------\n";
         }
 
-        $mensaje .= "--------------------------------\n";
-        $mensaje .= "*TOTAL PRODUCTOS:* $" . number_format($this->subtotal, 0) . "\n";
-        
+        $msg .= "💰 *TOTAL PRODUCTOS: $" . number_format($this->subtotal, 0) . "*\n";
+        $msg .= "💳 *PAGO:* " . strtoupper($this->metodo_pago) . "\n";
+
         if($this->tipoEntrega === 'domicilio') {
-            $mensaje .= "\n⚠️ *Nota:* Quedo atento al valor del domicilio para confirmar el pago total.";
+            $msg .= "_(Domicilio por confirmar)_\n";
         }
 
-        // 3. Redirigir a WhatsApp
-        $url = "https://wa.me/573137163216?text=" . urlencode($mensaje);
-        
-        // Limpiar carrito (opcional, o dejarlo hasta que confirmen)
-        // $this->reset(['carrito', 'pasoCheckout', 'nombre_cliente', ...]);
-        // session()->forget('carrito');
+        // Si es transferencia, añadimos el link mágico
+        if($this->metodo_pago === 'transferencia') {
+            $msg .= "\n👇 *LINK PARA SUBIR COMPROBANTE* 👇\n";
+            $msg .= $paymentLink . "\n";
+            $msg .= "_(Usa este link cuando sepas el valor del domicilio)_";
+        } else {
+            $msg .= "\n💵 *Pago contra entrega*";
+        }
 
-        return redirect()->away($url);
-    }
+        // 6. Limpiar y Redirigir
+        Session::forget('carrito');
+        $this->carrito = [];
+        $this->mostrarCarrito = false;
+        $this->pasoCheckout = 1;
 
-    // --- UTILIDADES ---
-
-    public function getSubtotalProperty()
-    {
-        return collect($this->carrito)->sum(fn($item) => $item['precio'] * $item['cantidad']);
-    }
-
-    private function guardarCarrito()
-    {
-        session()->put('carrito', $this->carrito);
-    }
-
-    public function filtrarCategoria($id)
-    {
-        $this->categoriaSeleccionada = $id;
-    }
-
-    public function logout() {
-        auth()->logout();
-        session()->invalidate();
-        session()->regenerateToken();
-        return redirect()->route('home');
+        $phone = "573137163216"; // TU NÚMERO
+        return redirect()->away("https://wa.me/{$phone}?text=" . urlencode($msg));
     }
 }
