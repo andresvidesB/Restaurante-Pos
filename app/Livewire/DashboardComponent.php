@@ -23,12 +23,11 @@ class DashboardComponent extends Component
     public $mostrarModalGasto = false;
 
     public function mount()
-    {
-        // Verificar si hay caja abierta del usuario actual
-        $this->cajaAbierta = Caja::where('user_id', auth()->id())
-                                 ->where('estado', 'Abierta')
-                                 ->first();
-    }
+{
+    $this->cajaAbierta = Caja::where('user_id', auth()->id())
+                             ->where('estado', 'Abierta')
+                             ->first();
+}
 
     // --- ACCIONES DE CAJA ---
     public function abrirCaja()

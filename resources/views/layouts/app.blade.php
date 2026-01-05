@@ -79,6 +79,10 @@
         </svg>
         Gestión de Usuarios
     </a>
+    <a href="{{ route('categorias.index') }}" class="flex items-center px-4 py-2 rounded transition-colors {{ request()->routeIs('categorias.index') ? 'bg-slate-900 text-yellow-400' : 'text-gray-300 hover:bg-slate-700 hover:text-white' }}">
+    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
+    Categorías
+</a>
 @endif
 
                 <a href="{{ route('reportes.index') }}" class="flex items-center px-4 py-2 rounded transition-colors {{ request()->routeIs('reportes.index') ? 'bg-slate-900 text-yellow-400 shadow-inner' : 'text-gray-300 hover:bg-slate-700 hover:text-white' }}">

@@ -59,6 +59,8 @@ Route::middleware(['auth'])->group(function () {
     // Gestión profunda, dinero, inventario y usuarios
     // --------------------------------------------------------
     Route::middleware(['role:admin'])->group(function () {
+        Route::get('/categorias', \App\Livewire\CategoriasComponent::class)->name('categorias.index');
+
         
         // Marketing y Usuarios
         Route::get('/ofertas', \App\Livewire\OfertasComponent::class)->name('ofertas.index');
