@@ -10,6 +10,7 @@ use App\Models\DetalleVenta;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log; // Importante para registrar errores internos
 use Illuminate\Support\Str;
+use App\Models\Caja;
 
 class PosComponent extends Component
 {
@@ -35,7 +36,12 @@ class PosComponent extends Component
     
     // Pago
     public $metodo_pago = 'Efectivo';
-    public $estado_pago = 'Pendiente'; // POR DEFECTO: Pendiente (Como lo pediste)
+    public $estado_pago = 'Pendiente'; // POR DEFECTO: Pendiente
+
+    // --- VARIABLES NUEVAS PARA PAGO MIXTO ---
+    public $pago_efectivo_input = 0;
+    public $pago_transferencia_input = 0;
+    public $es_pago_mixto = false;
 
     public function mount()
     {
@@ -134,6 +140,9 @@ class PosComponent extends Component
         $envio = ($this->tipo_servicio == 'Domicilio') ? floatval($this->costo_envio) : 0;
         
         $this->total = $subtotal + $envio;
+        
+        // ACTUALIZAR INPUTS DE PAGO AUTOMÁTICAMENTE
+        $this->actualizarInputsPago();
     }
 
     // --- LOGICA DE SERVICIOS ---
@@ -155,6 +164,33 @@ class PosComponent extends Component
         $this->calcularTotal(); 
     }
 
+    // --- LOGICA DE PAGOS MIXTOS ---
+    
+    public function updatedMetodoPago($value)
+    {
+        if($value == 'Mixto') {
+            $this->es_pago_mixto = true;
+            // Inicializamos en 0 para que el usuario escriba
+            $this->pago_efectivo_input = 0;
+            $this->pago_transferencia_input = 0;
+        } else {
+            $this->es_pago_mixto = false;
+            $this->actualizarInputsPago();
+        }
+    }
+
+    public function actualizarInputsPago()
+    {
+        // Si no es mixto, llenamos automáticamente el input correspondiente con el total
+        if($this->metodo_pago == 'Efectivo') {
+            $this->pago_efectivo_input = $this->total;
+            $this->pago_transferencia_input = 0;
+        } elseif ($this->metodo_pago == 'Transferencia' || $this->metodo_pago == 'Nequi/Daviplata' || $this->metodo_pago == 'Tarjeta') {
+            $this->pago_efectivo_input = 0;
+            $this->pago_transferencia_input = $this->total;
+        }
+    }
+
     // --- LIMPIAR TODO ---
     public function cancelarVenta()
     {
@@ -165,14 +201,33 @@ class PosComponent extends Component
         
         $this->tipo_servicio = 'Mostrador';
         $this->estado_pago = 'Pendiente'; // Resetear siempre a Pendiente
+        
+        // Resetear pagos mixtos
+        $this->pago_efectivo_input = 0;
+        $this->pago_transferencia_input = 0;
+        $this->es_pago_mixto = false;
+        $this->metodo_pago = 'Efectivo';
     }
 
     // --- COBRAR (PROCESO BLINDADO) ---
     public function cobrar()
     {
+        // 1. CANDADO DE CAJA (SEGURIDAD)
+        // Verificamos si el usuario tiene una caja abierta
+        $cajaAbierta = Caja::where('user_id', auth()->id())
+                            ->whereNull('fecha_cierre')
+                            ->exists();
+
+        if (!$cajaAbierta) {
+            // Si no hay caja, lanzamos el error y DETENEMOS la función
+            session()->flash('mensaje', '⛔ CAJA CERRADA: Debes abrir caja para realizar ventas.');
+            return;
+        }
+
+        // 2. Validar que haya productos
         if(empty($this->carrito)) return;
 
-        // 1. Validaciones según el tipo de servicio
+        // 3. Validaciones según el tipo de servicio
         if($this->tipo_servicio == 'Domicilio') {
             $this->validate([
                 'cliente_nombre' => 'required',
@@ -185,22 +240,36 @@ class PosComponent extends Component
             $this->validate(['numero_mesa' => 'required|integer']);
         }
 
-        // 2. Transacción Segura (Try-Catch)
+        // 4. Validación de Pago Mixto
+        $totalPagado = $this->pago_efectivo_input + $this->pago_transferencia_input;
+        
+        // Usamos abs() para evitar problemas mínimos de redondeo con decimales flotantes
+        if(abs($totalPagado - $this->total) > 0.1) {
+            session()->flash('mensaje', '❌ Error: La suma de pagos (' . number_format($totalPagado) . ') no coincide con el Total (' . number_format($this->total) . ')');
+            return;
+        }
+
+        // 5. Transacción Segura (Try-Catch)
         try {
             DB::transaction(function () {
                 
                 // A. Crear la Venta (Cabecera)
                 $venta = Venta::create([
                     'total' => $this->total,
+                    'pago_efectivo' => $this->pago_efectivo_input,
+                    'pago_transferencia' => $this->pago_transferencia_input,
+                    'metodo_pago' => $this->es_pago_mixto ? 'Mixto' : $this->metodo_pago,
                     'costo_envio' => ($this->tipo_servicio == 'Domicilio') ? $this->costo_envio : 0,
-                    'metodo_pago' => $this->metodo_pago,
                     'estado' => $this->estado_pago,
                     'tipo_servicio' => $this->tipo_servicio,
                     'numero_mesa' => ($this->tipo_servicio == 'Mesa') ? $this->numero_mesa : null,
-                    'cliente_nombre' => ($this->tipo_servicio == 'Domicilio') ? $this->cliente_nombre : null,
+                    
+                    // Guardar nombre si es Domicilio O Mostrador
+                    'cliente_nombre' => ($this->tipo_servicio == 'Domicilio' || $this->tipo_servicio == 'Mostrador') ? $this->cliente_nombre : null,
+                    
                     'cliente_telefono' => ($this->tipo_servicio == 'Domicilio') ? $this->cliente_telefono : null,
                     'cliente_direccion' => ($this->tipo_servicio == 'Domicilio') ? $this->cliente_direccion : null,
-                    'user_id' => auth()->id() ?? 1, // Usuario actual o ID 1 por defecto
+                    'user_id' => auth()->id() ?? 1,
                     'codigo_factura' => 'FAC-' . time()
                 ]);
 
@@ -235,10 +304,7 @@ class PosComponent extends Component
 
         } catch (\Exception $e) {
             // Si algo falla:
-            // 1. Guardamos el error real en los logs (para ti como desarrollador)
             Log::error("Error en Venta POS: " . $e->getMessage());
-
-            // 2. Mostramos un mensaje amable al usuario
             session()->flash('mensaje', 'Error al procesar la venta. Verifique los datos o intente nuevamente.');
         }
     }

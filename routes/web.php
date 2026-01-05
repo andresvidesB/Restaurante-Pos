@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\TicketController;
 
 // 1. Ruta de Login (Pública)
 // El middleware 'guest' evita que entres al login si ya estás logueado
@@ -24,6 +25,7 @@ Route::post('/logout', function () {
 
 // 4. GRUPO DE RUTAS PROTEGIDAS (Requieren Login)
 Route::middleware(['auth'])->group(function () {
+    Route::get('/cajas', \App\Livewire\CajasComponent::class)->name('cajas.index');
 
 
     Route::get('/mermas', \App\Livewire\MermasComponent::class)->name('mermas');
@@ -44,4 +46,7 @@ Route::get('/reporte/inventario', [\App\Http\Controllers\ReporteController::clas
     // Reportes
     Route::get('/reporte/diario', [\App\Http\Controllers\ReporteController::class, 'reporteDiario'])->name('reporte.diario');
 
+    // Rutas para imprimir
+Route::get('/imprimir/factura/{venta}', [TicketController::class, 'imprimirFactura'])->name('imprimir.factura');
+Route::get('/imprimir/comanda/{venta}', [TicketController::class, 'imprimirComanda'])->name('imprimir.comanda');
 });

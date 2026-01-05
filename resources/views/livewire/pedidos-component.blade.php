@@ -1,17 +1,20 @@
-<div class="p-4">
-    <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-        <h2 class="text-2xl font-bold text-gray-800">Gestión de Pedidos</h2>
+<div class="p-4 bg-gray-100 min-h-screen">
+    
+    <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+        <h2 class="text-2xl font-black text-gray-800 flex items-center gap-2">
+            📦 Gestión de Pedidos 
+            <span class="text-sm font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded-full">{{ $ventas->total() }} total</span>
+        </h2>
         
-        <div class="flex gap-2">
-            <select wire:model.live="filtroTipo" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                <option value="Todos">📦 Todos los Tipos</option>
-                <option value="Domicilio">🛵 Solo Domicilios</option>
-                <option value="Mesa">🍽️ Solo Mesas</option>
-                <option value="Mostrador">🛍️ Mostrador</option>
+        <div class="flex gap-2 w-full md:w-auto">
+            <select wire:model.live="filtroTipo" class="flex-1 border-gray-200 bg-gray-50 rounded-lg text-sm font-bold text-gray-700 h-10">
+                <option value="Todos">📦 Todos</option>
+                <option value="Domicilio">🛵 Domicilios</option>
+                <option value="Mesa">🍽️ Mesas</option>
+                <option value="Mostrador">🛍️ Llevar</option>
             </select>
-
-            <select wire:model.live="filtroEstado" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                <option value="Todos">Estado: Todos</option>
+            <select wire:model.live="filtroEstado" class="flex-1 border-gray-200 bg-gray-50 rounded-lg text-sm font-bold text-gray-700 h-10">
+                <option value="Todos">📊 Estado</option>
                 <option value="Pendiente">⏳ Pendientes</option>
                 <option value="Pagado">✅ Pagados</option>
                 <option value="Anulado">🚫 Anulados</option>
@@ -20,106 +23,102 @@
     </div>
 
     @if (session()->has('mensaje'))
-        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4 flex items-center animate-bounce">
-            <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+        <div class="bg-green-500 text-white px-4 py-3 rounded-lg shadow mb-6 font-bold text-center animate-pulse">
             {{ session('mensaje') }}
         </div>
     @endif
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         @foreach($ventas as $venta)
-            <div class="bg-white rounded-xl shadow-md overflow-hidden border-l-4 {{ $venta->estado == 'Pagado' ? 'border-green-500' : ($venta->estado == 'Anulado' ? 'border-gray-400 opacity-75' : 'border-orange-500') }} hover:shadow-lg transition flex flex-col h-full">
+            <div class="bg-white rounded-xl shadow hover:shadow-lg transition-all border border-gray-200 flex flex-col h-[380px] relative overflow-hidden group">
                 
-                <div class="bg-gray-50 px-4 py-3 border-b flex justify-between items-start">
-                    <div>
-                        <span class="text-xs font-bold text-gray-500">#{{ substr($venta->codigo_factura, -4) }}</span>
-                        <p class="font-bold text-gray-800 text-sm">
-                            {{ $venta->created_at->format('d M, h:i A') }}
-                        </p>
-                    </div>
-                    <div class="text-right">
-                        <span class="block text-xs font-bold px-2 py-1 rounded mb-1 {{ $venta->tipo_servicio == 'Domicilio' ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-700' }}">
-                            {{ $venta->tipo_servicio == 'Mesa' ? 'Mesa ' . $venta->numero_mesa : $venta->tipo_servicio }}
-                        </span>
-                        <span class="text-xs font-bold px-2 py-1 rounded {{ $venta->estado == 'Pagado' ? 'bg-green-100 text-green-700' : ($venta->estado == 'Anulado' ? 'bg-gray-200 text-gray-600' : 'bg-orange-100 text-orange-700') }}">
-                            {{ $venta->estado }}
-                        </span>
-                    </div>
+                <div class="absolute left-0 top-0 bottom-0 w-1.5 
+                    {{ $venta->estado == 'Pagado' ? 'bg-green-500' : ($venta->estado == 'Anulado' ? 'bg-gray-300' : 'bg-orange-500 animate-pulse') }}">
                 </div>
 
-                <div class="p-4 flex-1">
-                    @if($venta->tipo_servicio == 'Domicilio')
-                        <div class="mb-3 p-2 bg-blue-50 rounded border border-blue-100 text-sm">
-                            <p class="font-bold text-blue-900 flex items-center">
-                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-                                {{ $venta->cliente_nombre }}
-                            </p>
-                            <p class="text-gray-600 flex items-center mt-1">
-                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
-                                {{ $venta->cliente_telefono }}
-                            </p>
-                            <p class="text-gray-600 flex items-center mt-1 truncate leading-tight" title="{{ $venta->cliente_direccion }}">
-                                <svg class="w-4 h-4 mr-1 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                                {{ $venta->cliente_direccion }}
-                            </p>
+                <div class="p-3 border-b bg-gray-50 pl-4 flex justify-between items-start">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="font-mono text-xs text-gray-500 font-bold">#{{ substr($venta->codigo_factura, -4) }}</span>
+                            <span class="text-[10px] text-gray-400 uppercase font-bold">{{ $venta->created_at->format('h:i A') }}</span>
                         </div>
-                    @endif
-
-                    <div class="text-sm text-gray-700 space-y-2 mb-3">
-                        @foreach($venta->detalles as $detalle)
-                            <div class="border-b border-gray-100 pb-2 last:border-0 last:pb-0">
-                                <div class="flex justify-between items-start">
-                                    <span class="font-bold text-gray-700">
-                                        {{ $detalle->cantidad }}x {{ $detalle->producto->nombre }}
-                                    </span>
-                                    <span class="text-gray-500 text-xs font-mono ml-2">
-                                        ${{ number_format($detalle->subtotal, 0) }}
-                                    </span>
-                                </div>
-                                
-                                @if($detalle->observacion)
-                                    <div class="mt-1 bg-red-50 border border-red-100 rounded px-2 py-1 inline-block">
-                                        <p class="text-xs text-red-600 font-bold italic flex items-center">
-                                            📝 Nota: {{ $detalle->observacion }}
-                                        </p>
-                                    </div>
-                                @endif
-                            </div>
-                        @endforeach
                         
-                        @if($venta->costo_envio > 0)
-                            <div class="flex justify-between text-blue-600 font-bold pt-2 border-t border-dashed">
-                                <span>Domicilio:</span>
-                                <span>${{ number_format($venta->costo_envio, 0) }}</span>
-                            </div>
+                        @if($venta->tipo_servicio == 'Mesa')
+                            <h3 class="font-black text-gray-800 text-lg leading-none">🍽️ Mesa {{ $venta->numero_mesa }}</h3>
+                        @elseif($venta->tipo_servicio == 'Domicilio')
+                            <h3 class="font-black text-blue-600 text-lg leading-none">🛵 Domicilio</h3>
+                        @else
+                            <h3 class="font-black text-purple-600 text-lg leading-none">🛍️ Para Llevar</h3>
+                        @endif
+
+                        @if($venta->cliente_nombre)
+                            <p class="text-xs font-bold text-gray-600 mt-1 truncate max-w-[150px]" title="{{ $venta->cliente_nombre }}">
+                                👤 {{ $venta->cliente_nombre }}
+                            </p>
                         @endif
                     </div>
 
-                    <div class="flex justify-between items-center text-lg font-extrabold text-gray-800 border-t pt-3 mt-auto">
-                        <span>TOTAL:</span>
-                        <span>${{ number_format($venta->total, 0) }}</span>
-                    </div>
-                    <div class="text-xs text-gray-400 text-right mt-1">Pago: {{ $venta->metodo_pago }}</div>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase border 
+                        {{ $venta->estado == 'Pagado' ? 'bg-green-50 text-green-600 border-green-200' : ($venta->estado == 'Anulado' ? 'bg-gray-100 text-gray-400 border-gray-200' : 'bg-orange-50 text-orange-600 border-orange-200') }}">
+                        {{ $venta->estado }}
+                    </span>
                 </div>
 
-                @if($venta->estado != 'Anulado')
-                <div class="bg-gray-50 px-4 py-3 border-t flex justify-between items-center gap-2">
-                    
-                    <button wire:click="anularPedido({{ $venta->id }})" 
-                            wire:confirm="¿Seguro deseas anular este pedido? El stock se devolverá al inventario."
-                            class="text-red-500 hover:text-red-700 font-bold text-xs border border-red-200 hover:bg-red-50 px-3 py-2 rounded transition">
-                        ANULAR
-                    </button>
+                <div class="flex-1 p-3 overflow-y-auto bg-white custom-scrollbar pl-4">
+                    @if($venta->tipo_servicio == 'Domicilio')
+                        <div class="mb-2 p-2 bg-blue-50 rounded border border-blue-100 text-xs text-blue-800">
+                            <p>📞 {{ $venta->cliente_telefono }}</p>
+                            <p class="truncate">📍 {{ $venta->cliente_direccion }}</p>
+                        </div>
+                    @endif
 
-                    @if($venta->estado == 'Pendiente')
-                        <button wire:click="marcarPagado({{ $venta->id }})" 
-                                class="bg-green-600 text-white hover:bg-green-700 font-bold text-xs px-4 py-2 rounded shadow transition flex items-center">
-                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                            PAGAR
-                        </button>
+                    <div class="space-y-2">
+                        @foreach($venta->detalles as $detalle)
+                            <div class="flex justify-between items-start text-sm border-b border-gray-100 pb-1 last:border-0">
+                                <div class="leading-tight">
+                                    <span class="font-bold text-gray-800">{{ $detalle->cantidad }}x</span> 
+                                    <span class="text-gray-600 text-xs">{{ $detalle->producto->nombre }}</span>
+                                    @if($detalle->observacion)
+                                        <div class="text-[10px] text-red-500 italic bg-red-50 px-1 rounded inline-block">📝 {{ $detalle->observacion }}</div>
+                                    @endif
+                                </div>
+                                <span class="font-mono text-xs text-gray-400">${{ number_format($detalle->subtotal, 0) }}</span>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+
+                <div class="p-3 bg-gray-50 border-t pl-4">
+                    <div class="flex justify-between items-end mb-2">
+                        <span class="text-[10px] uppercase font-bold text-gray-400">Total</span>
+                        <span class="text-xl font-black text-gray-800 leading-none">${{ number_format($venta->total, 0) }}</span>
+                    </div>
+                    
+                    @if($venta->estado != 'Anulado')
+                        <div class="grid grid-cols-4 gap-1">
+                            <a href="{{ route('imprimir.factura', $venta->id) }}" target="_blank" class="col-span-1 flex items-center justify-center bg-white border border-gray-300 rounded hover:bg-gray-100 text-gray-600 py-1" title="Factura">🧾</a>
+                            <a href="{{ route('imprimir.comanda', $venta->id) }}" target="_blank" class="col-span-1 flex items-center justify-center bg-white border border-gray-300 rounded hover:bg-yellow-50 text-yellow-600 py-1" title="Comanda">👨‍🍳</a>
+                            
+                            @if($venta->estado == 'Pendiente')
+                                <button wire:click="marcarPagado({{ $venta->id }})" class="col-span-2 bg-green-600 hover:bg-green-700 text-white font-bold text-xs rounded py-1 shadow">
+                                    PAGAR
+                                </button>
+                            @else
+                                <button class="col-span-2 bg-gray-200 text-gray-400 font-bold text-xs rounded py-1 cursor-default">
+                                    PAGADO
+                                </button>
+                            @endif
+                        </div>
+                        <div class="mt-1 text-center">
+                             <button wire:click="confirmarAnulacion({{ $venta->id }})" class="text-[10px] text-red-400 hover:text-red-600 font-bold hover:underline">Anular Pedido</button>
+                        </div>
+                    @else
+                        <div class="bg-red-50 text-red-400 text-xs text-center py-1 rounded border border-red-100 italic">
+                            Anulado: {{ Str::limit($venta->motivo_anulacion, 20) }}
+                        </div>
                     @endif
                 </div>
-                @endif
+
             </div>
         @endforeach
     </div>
@@ -127,4 +126,17 @@
     <div class="mt-6">
         {{ $ventas->links() }}
     </div>
+
+    @if($mostrarModalAnular)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5">
+            <h3 class="font-bold text-lg text-gray-800 mb-2">Anular Pedido</h3>
+            <textarea wire:model="motivoAnulacion" class="w-full border bg-gray-50 rounded p-2 text-sm focus:ring-2 focus:ring-red-500 outline-none" rows="3" placeholder="Motivo..."></textarea>
+            <div class="flex justify-end gap-2 mt-3">
+                <button wire:click="cerrarModal" class="px-3 py-1.5 text-gray-500 font-bold text-sm">Cancelar</button>
+                <button wire:click="anularPedido" class="px-3 py-1.5 bg-red-500 text-white rounded font-bold text-sm shadow">Confirmar</button>
+            </div>
+        </div>
+    </div>
+    @endif
 </div>
