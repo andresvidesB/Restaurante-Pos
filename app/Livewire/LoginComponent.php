@@ -23,18 +23,26 @@ class LoginComponent extends Component
     }
 
     public function login()
-    {
-        $this->validate();
+{
+    $credentials = $this->validate([
+        'email' => 'required|email',
+        'password' => 'required',
+    ]);
 
-        // Intenta iniciar sesión con las credenciales
-        if (Auth::attempt(['email' => $this->email, 'password' => $this->password])) {
-            
-            // Si es correcto:
-            session()->regenerate(); // Seguridad contra ataques de sesión
-            return redirect()->intended(route('dashboard')); // Redirigir al panel
+    if (auth()->attempt($credentials)) {
+        session()->regenerate();
+
+        // LÓGICA DE REDIRECCIÓN SEGÚN ROL
+        $user = auth()->user();
+
+        if ($user->role === 'admin' || $user->role === 'mesero') {
+            return redirect()->intended('/dashboard');
+        } else {
+            // Usuarios normales o clientes van al menú público
+            return redirect()->intended('/');
         }
-
-        // Si falla:
-        $this->addError('email', 'Estas credenciales no coinciden con nuestros registros.');
     }
+
+    $this->addError('email', 'Las credenciales no coinciden.');
+}
 }

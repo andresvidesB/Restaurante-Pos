@@ -22,15 +22,32 @@
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         @foreach($productos as $producto)
             <div class="bg-white rounded-xl shadow-md overflow-hidden border border-gray-100 hover:shadow-lg transition flex flex-col justify-between">
+                
+                <div class="h-48 w-full bg-gray-200 relative">
+                    @if($producto->imagen)
+                        <img src="{{ asset('storage/'.$producto->imagen) }}" class="w-full h-full object-cover">
+                    @else
+                        <div class="w-full h-full flex items-center justify-center text-gray-400 font-bold bg-gray-100">
+                            Sin Foto
+                        </div>
+                    @endif
+                    
+                    <div class="absolute top-2 right-2">
+                        <span class="px-2 py-1 text-xs font-bold rounded-full shadow-sm {{ $producto->activo ? 'bg-green-500 text-white' : 'bg-red-500 text-white' }}">
+                            {{ $producto->activo ? 'Disponible' : 'Oculto' }}
+                        </span>
+                    </div>
+                </div>
+
                 <div class="p-5">
                     <div class="flex justify-between items-start">
                         <div>
                             <span class="text-xs font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded-full uppercase">
                                 {{ $producto->categoria->nombre ?? 'Sin Categoría' }}
                             </span>
-                            <h3 class="mt-2 text-xl font-bold text-gray-800">{{ $producto->nombre }}</h3>
+                            <h3 class="mt-2 text-xl font-bold text-gray-800 leading-tight">{{ $producto->nombre }}</h3>
                         </div>
-                        <div class="text-right">
+                        <div class="text-right ml-2">
                             <span class="block text-xl font-extrabold text-gray-900">${{ number_format($producto->precio, 0) }}</span>
                         </div>
                     </div>
@@ -88,17 +105,20 @@
 
                 <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                     <div class="grid grid-cols-2 gap-4 mb-6">
-                        <div class="col-span-2">
+                        
+                        <div class="col-span-2 md:col-span-1">
                             <label class="block text-sm font-bold text-gray-700 mb-1">Nombre del Plato</label>
                             <input wire:model="nombre" type="text" class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none">
                             @error('nombre') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
                         </div>
-                        <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-1">Precio de Venta</label>
+
+                        <div class="col-span-1">
+                            <label class="block text-sm font-bold text-gray-700 mb-1">Precio</label>
                             <input wire:model="precio" type="number" class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none">
                             @error('precio') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
                         </div>
-                        <div>
+
+                        <div class="col-span-2 md:col-span-1">
                             <label class="block text-sm font-bold text-gray-700 mb-1">Categoría</label>
                             <select wire:model="categoria_id" class="w-full border rounded-lg p-2 bg-white focus:ring-2 focus:ring-blue-500 outline-none">
                                 <option value="">Seleccione...</option>
@@ -108,6 +128,48 @@
                             </select>
                             @error('categoria_id') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
                         </div>
+
+                        <div class="col-span-2 md:col-span-1 flex items-center pt-6">
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" wire:model="activo" class="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                                <span class="font-bold text-gray-700 text-sm">Disponible en Menú Web</span>
+                            </label>
+                        </div>
+                        <div class="col-span-2 md:col-span-1 flex items-center pt-2">
+    <label class="flex items-center space-x-2 cursor-pointer p-2 border rounded-lg bg-yellow-50 border-yellow-200 hover:bg-yellow-100 transition">
+        <input type="checkbox" wire:model="es_oferta" class="w-5 h-5 text-yellow-600 rounded border-gray-300 focus:ring-yellow-500">
+        <span class="font-bold text-yellow-800 text-sm">🔥 ¡Marcar como Oferta!</span>
+    </label>
+</div>
+
+                        <div class="col-span-2 border-t pt-4 mt-2">
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Imagen del Plato (Opcional)</label>
+                            
+                            <div class="flex items-center gap-4">
+                                <div class="flex-1">
+                                    <input type="file" wire:model="imagen" class="block w-full text-sm text-gray-500
+                                        file:mr-4 file:py-2 file:px-4
+                                        file:rounded-full file:border-0
+                                        file:text-sm file:font-semibold
+                                        file:bg-blue-50 file:text-blue-700
+                                        hover:file:bg-blue-100
+                                    "/>
+                                    @error('imagen') <span class="text-red-500 text-xs block mt-1">{{ $message }}</span> @enderror
+                                </div>
+
+                                <div class="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden border flex-shrink-0">
+                                    @if ($imagen)
+                                        <img src="{{ $imagen->temporaryUrl() }}" class="w-full h-full object-cover">
+                                    @elseif($imagen_actual)
+                                        <img src="{{ asset('storage/'.$imagen_actual) }}" class="w-full h-full object-cover">
+                                    @else
+                                        <div class="w-full h-full flex items-center justify-center text-xs text-gray-400 text-center p-1">Sin foto</div>
+                                    @endif
+                                </div>
+                            </div>
+                            <div wire:loading wire:target="imagen" class="text-blue-600 text-xs mt-1">Cargando imagen...</div>
+                        </div>
+
                     </div>
 
                     <hr class="border-dashed my-4">
@@ -163,7 +225,7 @@
 
                 <div class="bg-gray-50 px-4 py-3 sm:px-6 flex justify-end gap-3">
                     <button wire:click="closeModal" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium">Cancelar</button>
-                    <button wire:click="store" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-bold shadow-md">
+                    <button wire:click="store" wire:loading.attr="disabled" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-bold shadow-md disabled:opacity-50">
                         {{ $producto_id ? 'Actualizar' : 'Guardar' }}
                     </button>
                 </div>

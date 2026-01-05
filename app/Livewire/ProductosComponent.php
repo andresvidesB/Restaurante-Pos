@@ -7,23 +7,31 @@ use App\Models\Producto;
 use App\Models\Insumo;
 use App\Models\Categoria;
 use Livewire\WithPagination;
+use Livewire\WithFileUploads; // <--- NUEVO: Para subir imágenes
+use Illuminate\Support\Facades\Storage; // <--- NUEVO: Para borrar imágenes viejas
 
 class ProductosComponent extends Component
 {
-    use WithPagination;
+    use WithPagination, WithFileUploads; // <--- NUEVO
 
+    public $es_oferta = false;
     // Variables de Vista
     public $search = '';
     public $isOpen = false;
     public $categorias_list;
 
     // Variables del Formulario
-    public $producto_id; // Para saber si estamos editando
+    public $producto_id;
     public $nombre, $precio, $categoria_id;
+    
+    // --- NUEVAS VARIABLES PARA EL MENÚ CLIENTE ---
+    public $imagen; // El archivo temporal
+    public $imagen_actual; // Para mostrar la vieja al editar (opcional en lógica, útil en vista)
+    public $activo = true; // Por defecto disponible
 
     // Variables de Receta
     public $insumosDisponibles;
-    public $receta = []; // Array temporal
+    public $receta = []; 
     public $insumoSeleccionado, $cantidadInsumo;
 
     public function mount()
@@ -44,31 +52,34 @@ class ProductosComponent extends Component
         ])->layout('layouts.app');
     }
 
-    // --- ABRIR PARA CREAR ---
     public function create()
     {
         $this->resetInputFields();
         $this->isOpen = true;
     }
 
-    // --- ABRIR PARA EDITAR ---
     public function edit($id)
     {
         $producto = Producto::find($id);
         
         // 1. Llenar datos básicos
+        $this->es_oferta = $producto->es_oferta == 1;
         $this->producto_id = $id;
         $this->nombre = $producto->nombre;
         $this->precio = $producto->precio;
         $this->categoria_id = $producto->categoria_id;
+        
+        // --- NUEVO: Cargar datos del menú público ---
+        $this->activo = $producto->activo == 1; // Convertir a booleano para el checkbox
+        $this->imagen_actual = $producto->imagen; // Guardamos la ruta vieja por si no sube nueva
 
-        // 2. Reconstruir la receta desde la base de datos
+        // 2. Reconstruir la receta
         $this->receta = [];
         foreach($producto->insumos as $insumo) {
             $this->receta[] = [
                 'id' => $insumo->id,
                 'nombre' => $insumo->nombre,
-                'cantidad' => floatval($insumo->pivot->cantidad_requerida), // floatval quita los ceros extra (1.00 -> 1)
+                'cantidad' => floatval($insumo->pivot->cantidad_requerida),
                 'unidad' => $insumo->unidad_medida
             ];
         }
@@ -84,22 +95,27 @@ class ProductosComponent extends Component
 
     private function resetInputFields()
     {
+        $this->es_oferta = false;
         $this->nombre = '';
         $this->precio = '';
         $this->categoria_id = '';
         $this->producto_id = null;
+        
+        // --- LIMPIAR NUEVOS CAMPOS ---
+        $this->imagen = null;
+        $this->imagen_actual = null;
+        $this->activo = true;
+
         $this->receta = [];
         $this->insumoSeleccionado = '';
         $this->cantidadInsumo = '';
     }
 
-    // --- GESTIÓN DE INGREDIENTES LOCALES ---
     public function agregarInsumo()
     {
         if ($this->insumoSeleccionado && $this->cantidadInsumo > 0) {
             $insumoObj = Insumo::find($this->insumoSeleccionado);
             if($insumoObj) {
-                // Verificar si ya existe en la lista para no duplicar visualmente
                 foreach($this->receta as $item) {
                     if($item['id'] == $insumoObj->id) return; 
                 }
@@ -122,38 +138,54 @@ class ProductosComponent extends Component
         $this->receta = array_values($this->receta);
     }
 
-    // --- GUARDAR (CREAR O ACTUALIZAR) ---
     public function store()
     {
-        $this->validate([
+        // Validaciones (Agregué imagen)
+        $rules = [
             'nombre' => 'required',
             'precio' => 'required|numeric',
-            'categoria_id' => 'required'
-        ]);
+            'categoria_id' => 'required',
+            // Cambiamos 'image' por 'file' para evitar el conflicto con AVIF
+'imagen' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp,avif|max:5000',// Max 5MB
+        ];
 
-        // LOGICA DUAL: Si hay ID es actualizar, si no es crear
+        $this->validate($rules);
+
+        // Preparamos los datos comunes
+        $data = [
+            'nombre' => $this->nombre,
+            'precio' => $this->precio,
+            'categoria_id' => $this->categoria_id,
+            'activo' => $this->activo ? 1 : 0, // Guardar booleano
+            'es_oferta' => $this->es_oferta ? 1 : 0,
+        ];
+
+        // --- LÓGICA DE IMAGEN ---
+        if ($this->imagen) {
+            // Si estamos editando y suben nueva foto, borramos la vieja (buena práctica)
+            if ($this->producto_id) {
+                $prodAntiguo = Producto::find($this->producto_id);
+                if ($prodAntiguo->imagen) {
+                    Storage::disk('public')->delete($prodAntiguo->imagen);
+                }
+            }
+            // Guardar nueva
+            $nombreImagen = $this->imagen->store('productos', 'public');
+            $data['imagen'] = $nombreImagen;
+        }
+
         if($this->producto_id) {
             // ACTUALIZAR
             $producto = Producto::find($this->producto_id);
-            $producto->update([
-                'nombre' => $this->nombre,
-                'precio' => $this->precio,
-                'categoria_id' => $this->categoria_id,
-            ]);
+            $producto->update($data);
             $mensaje = 'Producto actualizado correctamente.';
         } else {
             // CREAR
-            $producto = Producto::create([
-                'nombre' => $this->nombre,
-                'precio' => $this->precio,
-                'categoria_id' => $this->categoria_id,
-                'activo' => true
-            ]);
+            $producto = Producto::create($data);
             $mensaje = 'Producto creado correctamente.';
         }
 
-        // SINCRONIZAR RECETA (Magia de Laravel)
-        // sync() borra lo viejo y pone lo nuevo automáticamente
+        // SINCRONIZAR RECETA
         $datosSync = [];
         foreach ($this->receta as $item) {
             $datosSync[$item['id']] = ['cantidad_requerida' => $item['cantidad']];
@@ -164,12 +196,15 @@ class ProductosComponent extends Component
         $this->closeModal();
     }
 
-    // --- ELIMINAR ---
     public function delete($id)
     {
         $producto = Producto::find($id);
-        // Al borrar el producto, la tabla pivote se limpia sola si configuramos cascade, 
-        // pero detach() asegura que no queden huérfanos.
+        
+        // Borrar imagen del disco si existe
+        if($producto->imagen){
+            Storage::disk('public')->delete($producto->imagen);
+        }
+
         $producto->insumos()->detach(); 
         $producto->delete();
         
