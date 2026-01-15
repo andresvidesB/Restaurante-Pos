@@ -6,15 +6,19 @@ use Livewire\Component;
 use App\Models\Producto;
 use App\Models\Insumo;
 use App\Models\Categoria;
+use App\Models\DetalleVenta; // <--- IMPRESCINDIBLE PARA EL ERROR DE BORRADO
 use Livewire\WithPagination;
-use Livewire\WithFileUploads; // <--- NUEVO: Para subir imágenes
-use Illuminate\Support\Facades\Storage; // <--- NUEVO: Para borrar imágenes viejas
+use Livewire\WithFileUploads;
+use Illuminate\Support\Facades\Storage;
 
 class ProductosComponent extends Component
 {
-    use WithPagination, WithFileUploads; // <--- NUEVO
+    use WithPagination, WithFileUploads;
 
+    // Variables de Oferta
     public $es_oferta = false;
+    public $precio_oferta; // <--- FALTABA ESTA VARIABLE
+
     // Variables de Vista
     public $search = '';
     public $isOpen = false;
@@ -24,10 +28,10 @@ class ProductosComponent extends Component
     public $producto_id;
     public $nombre, $precio, $categoria_id;
     
-    // --- NUEVAS VARIABLES PARA EL MENÚ CLIENTE ---
-    public $imagen; // El archivo temporal
-    public $imagen_actual; // Para mostrar la vieja al editar (opcional en lógica, útil en vista)
-    public $activo = true; // Por defecto disponible
+    // Variables Menú Cliente
+    public $imagen; 
+    public $imagen_actual; 
+    public $activo = true; 
 
     // Variables de Receta
     public $insumosDisponibles;
@@ -63,15 +67,18 @@ class ProductosComponent extends Component
         $producto = Producto::find($id);
         
         // 1. Llenar datos básicos
-        $this->es_oferta = $producto->es_oferta == 1;
         $this->producto_id = $id;
         $this->nombre = $producto->nombre;
         $this->precio = $producto->precio;
         $this->categoria_id = $producto->categoria_id;
         
-        // --- NUEVO: Cargar datos del menú público ---
-        $this->activo = $producto->activo == 1; // Convertir a booleano para el checkbox
-        $this->imagen_actual = $producto->imagen; // Guardamos la ruta vieja por si no sube nueva
+        // Datos de Oferta
+        $this->es_oferta = $producto->es_oferta == 1;
+        $this->precio_oferta = $producto->precio_oferta; // <--- CARGAR PRECIO OFERTA
+        
+        // Datos Menú Público
+        $this->activo = $producto->activo == 1; 
+        $this->imagen_actual = $producto->imagen; 
 
         // 2. Reconstruir la receta
         $this->receta = [];
@@ -95,17 +102,21 @@ class ProductosComponent extends Component
 
     private function resetInputFields()
     {
-        $this->es_oferta = false;
         $this->nombre = '';
         $this->precio = '';
         $this->categoria_id = '';
         $this->producto_id = null;
         
-        // --- LIMPIAR NUEVOS CAMPOS ---
+        // Limpiar Ofertas
+        $this->es_oferta = false;
+        $this->precio_oferta = null; // <--- RESETEAR
+        
+        // Limpiar Imagen
         $this->imagen = null;
         $this->imagen_actual = null;
         $this->activo = true;
 
+        // Limpiar Receta
         $this->receta = [];
         $this->insumoSeleccionado = '';
         $this->cantidadInsumo = '';
@@ -140,47 +151,47 @@ class ProductosComponent extends Component
 
     public function store()
     {
-        // Validaciones (Agregué imagen)
+        // Validaciones
         $rules = [
             'nombre' => 'required',
             'precio' => 'required|numeric',
             'categoria_id' => 'required',
-            // Cambiamos 'image' por 'file' para evitar el conflicto con AVIF
-'imagen' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp,avif|max:5000',// Max 5MB
+            'imagen' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp,avif|max:5000',
+            // Si es oferta, el precio oferta es obligatorio y debe ser numérico
+            'precio_oferta' => $this->es_oferta ? 'required|numeric' : 'nullable',
         ];
 
         $this->validate($rules);
 
-        // Preparamos los datos comunes
+        // Datos a guardar
         $data = [
             'nombre' => $this->nombre,
             'precio' => $this->precio,
             'categoria_id' => $this->categoria_id,
-            'activo' => $this->activo ? 1 : 0, // Guardar booleano
+            'activo' => $this->activo ? 1 : 0,
+            
+            // Lógica Oferta
             'es_oferta' => $this->es_oferta ? 1 : 0,
+            'precio_oferta' => $this->es_oferta ? $this->precio_oferta : null, // Guardar o anular
         ];
 
         // --- LÓGICA DE IMAGEN ---
         if ($this->imagen) {
-            // Si estamos editando y suben nueva foto, borramos la vieja (buena práctica)
             if ($this->producto_id) {
                 $prodAntiguo = Producto::find($this->producto_id);
-                if ($prodAntiguo->imagen) {
+                if ($prodAntiguo && $prodAntiguo->imagen) {
                     Storage::disk('public')->delete($prodAntiguo->imagen);
                 }
             }
-            // Guardar nueva
             $nombreImagen = $this->imagen->store('productos', 'public');
             $data['imagen'] = $nombreImagen;
         }
 
         if($this->producto_id) {
-            // ACTUALIZAR
             $producto = Producto::find($this->producto_id);
             $producto->update($data);
             $mensaje = 'Producto actualizado correctamente.';
         } else {
-            // CREAR
             $producto = Producto::create($data);
             $mensaje = 'Producto creado correctamente.';
         }
@@ -196,18 +207,33 @@ class ProductosComponent extends Component
         $this->closeModal();
     }
 
+    // --- FUNCIÓN DELETE CORREGIDA (EVITA EL ERROR SQL) ---
     public function delete($id)
     {
         $producto = Producto::find($id);
         
-        // Borrar imagen del disco si existe
-        if($producto->imagen){
-            Storage::disk('public')->delete($producto->imagen);
-        }
+        if(!$producto) return;
 
-        $producto->insumos()->detach(); 
-        $producto->delete();
-        
-        session()->flash('message', 'Producto eliminado del sistema.');
+        // 1. Verificar si tiene ventas asociadas
+        $tieneVentas = DetalleVenta::where('producto_id', $id)->exists();
+
+        if ($tieneVentas) {
+            // OPCIÓN A: TIENE HISTORIAL -> SOLO DESACTIVAR
+            $producto->update(['activo' => false]);
+            session()->flash('message', '⚠️ El producto tiene ventas registradas. Se ha DESACTIVADO para no romper el historial.');
+        } else {
+            // OPCIÓN B: ES NUEVO -> BORRAR DE VERDAD
+            
+            // Borrar imagen si existe
+            if($producto->imagen){
+                Storage::disk('public')->delete($producto->imagen);
+            }
+
+            // Borrar receta y producto
+            $producto->insumos()->detach(); 
+            $producto->delete();
+            
+            session()->flash('message', 'Producto eliminado definitivamente del sistema.');
+        }
     }
 }

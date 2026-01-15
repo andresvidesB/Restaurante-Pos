@@ -1,6 +1,7 @@
 <div class="min-h-screen bg-[#1a1a1a] font-sans text-gray-200" style="background-image: url('https://www.transparenttextures.com/patterns/dark-matter.png');">
     
     <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
 
     <style>
         /* Animación de partículas */
@@ -23,6 +24,7 @@
             <div class="flex justify-between h-20 items-center">
                 
                 <div class="flex-shrink-0 flex items-center cursor-pointer group" wire:click="filtrarCategoria(0)">
+                    
                     <span class="text-2xl font-black text-white tracking-tighter drop-shadow-md">
                         Gourmet<span class="text-orange-500 italic">CARBÓN</span>
                     </span>
@@ -201,6 +203,7 @@
         </div>
     </div>
 
+    {{-- CARRITO FLOTANTE (ESTILO ORIGINAL MANTENIDO) --}}
     @if(!$mostrarCarrito && count($carrito) > 0)
         <button wire:click="toggleCarrito" class="fixed bottom-6 right-6 z-50 bg-orange-600 text-white w-16 h-16 rounded-full shadow-[0_0_20px_rgba(234,88,12,0.6)] flex items-center justify-center transition transform hover:scale-110 animate-bounce">
             <div class="relative">
@@ -301,23 +304,6 @@
         </div>
     </div>
     @endif
-
-    <div x-data="{ show: false, message: '' }" 
-         x-on:mostrar-toast.window="show = true; message = $event.detail.mensaje; setTimeout(() => show = false, 3000)"
-         x-show="show"
-         x-transition:enter="transition ease-out duration-300"
-         x-transition:enter-start="opacity-0 translate-y-2"
-         x-transition:enter-end="opacity-100 translate-y-0"
-         x-transition:leave="transition ease-in duration-300"
-         x-transition:leave-start="opacity-100 translate-y-0"
-         x-transition:leave-end="opacity-0 translate-y-2"
-         style="display: none;"
-         class="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-[60] bg-black/80 backdrop-blur-md border border-orange-500/50 text-white px-6 py-3 rounded-full shadow-[0_0_15px_rgba(234,88,12,0.3)] flex items-center gap-3">
-        <div class="bg-orange-600 rounded-full p-1 shadow-lg shadow-orange-600/40">
-            <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
-        </div>
-        <span class="font-bold text-sm tracking-wide" x-text="message"></span>
-    </div>
 
     <footer class="bg-black text-gray-500 py-8 text-center text-xs border-t border-white/5">
         <p>&copy; 2026 GOURMET CARBÓN. TODOS LOS DERECHOS RESERVADOS.</p>

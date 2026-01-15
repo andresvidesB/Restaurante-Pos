@@ -250,7 +250,7 @@ class PosComponent extends Component
         }
 
         // 5. Transacción Segura (Try-Catch)
-        try {
+       // try {
             DB::transaction(function () {
                 
                 // A. Crear la Venta (Cabecera)
@@ -302,10 +302,10 @@ class PosComponent extends Component
             $this->cancelarVenta();
             session()->flash('mensaje', '¡Venta registrada exitosamente!');
 
-        } catch (\Exception $e) {
+      //  } catch (\Exception $e) {
             // Si algo falla:
-            Log::error("Error en Venta POS: " . $e->getMessage());
-            session()->flash('mensaje', 'Error al procesar la venta. Verifique los datos o intente nuevamente.');
-        }
+      //      Log::error("Error en Venta POS: " . $e->getMessage());
+     //       session()->flash('mensaje', 'Error al procesar la venta. Verifique los datos o intente nuevamente.');
+       // }
     }
 }

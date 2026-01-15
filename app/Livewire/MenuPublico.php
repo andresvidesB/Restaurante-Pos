@@ -89,7 +89,8 @@ class MenuPublico extends Component
             ];
         }
         $this->guardarCarrito();
-        $this->mostrarCarrito = true; // Abrir carrito automáticamente al agregar
+        $this->dispatch('mostrar-toast', mensaje: '¡Producto agregado!');
+        //$this->mostrarCarrito = true; // Abrir carrito automáticamente al agregar
     }
 
     public function incrementarCantidad($id)

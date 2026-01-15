@@ -212,10 +212,10 @@
                 </button>
 
                 @if (session()->has('mensaje'))
-                    <div class="absolute bottom-full left-0 right-0 bg-green-500 text-white text-xs font-bold text-center py-1 animate-fade-in-up shadow-md">
-                        {{ session('mensaje') }}
-                    </div>
-                @endif
+    <div class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-red-600 text-white px-8 py-6 rounded-lg shadow-2xl z-[9999] text-2xl font-black animate-bounce text-center border-4 border-white">
+        ⚠️ {{ session('mensaje') }}
+    </div>
+@endif
             </div>
         </div>
     </div>
