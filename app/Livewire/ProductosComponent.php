@@ -6,7 +6,7 @@ use Livewire\Component;
 use App\Models\Producto;
 use App\Models\Insumo;
 use App\Models\Categoria;
-use App\Models\DetalleVenta; // <--- IMPRESCINDIBLE PARA EL ERROR DE BORRADO
+use App\Models\DetalleVenta; // <--- VITAL: Para consultar el historial
 use Livewire\WithPagination;
 use Livewire\WithFileUploads;
 use Illuminate\Support\Facades\Storage;
@@ -15,25 +15,25 @@ class ProductosComponent extends Component
 {
     use WithPagination, WithFileUploads;
 
-    // Variables de Oferta
+    // --- VARIABLES DE OFERTA ---
     public $es_oferta = false;
-    public $precio_oferta; // <--- FALTABA ESTA VARIABLE
+    public $precio_oferta; 
 
-    // Variables de Vista
+    // --- VARIABLES DE VISTA ---
     public $search = '';
     public $isOpen = false;
     public $categorias_list;
 
-    // Variables del Formulario
+    // --- VARIABLES DEL FORMULARIO ---
     public $producto_id;
     public $nombre, $precio, $categoria_id;
     
-    // Variables Menú Cliente
-    public $imagen; 
-    public $imagen_actual; 
+    // --- VARIABLES MENÚ PÚBLICO ---
+    public $imagen;        // Archivo temporal al subir
+    public $imagen_actual; // Ruta guardada (para mostrar vista previa)
     public $activo = true; 
 
-    // Variables de Receta
+    // --- VARIABLES DE RECETA ---
     public $insumosDisponibles;
     public $receta = []; 
     public $insumoSeleccionado, $cantidadInsumo;
@@ -46,6 +46,7 @@ class ProductosComponent extends Component
 
     public function render()
     {
+        // Mostramos productos (incluso los inactivos, para poder reactivarlos si quieres)
         $productos = Producto::where('nombre', 'like', '%' . $this->search . '%')
             ->orderBy('id', 'desc')
             ->with(['categoria', 'insumos'])
@@ -66,21 +67,19 @@ class ProductosComponent extends Component
     {
         $producto = Producto::find($id);
         
-        // 1. Llenar datos básicos
+        // Cargar datos básicos
         $this->producto_id = $id;
         $this->nombre = $producto->nombre;
         $this->precio = $producto->precio;
         $this->categoria_id = $producto->categoria_id;
         
-        // Datos de Oferta
+        // Cargar datos extra
         $this->es_oferta = $producto->es_oferta == 1;
-        $this->precio_oferta = $producto->precio_oferta; // <--- CARGAR PRECIO OFERTA
-        
-        // Datos Menú Público
-        $this->activo = $producto->activo == 1; 
-        $this->imagen_actual = $producto->imagen; 
+        $this->precio_oferta = $producto->precio_oferta;
+        $this->activo = $producto->activo == 1;
+        $this->imagen_actual = $producto->imagen;
 
-        // 2. Reconstruir la receta
+        // Cargar Receta
         $this->receta = [];
         foreach($producto->insumos as $insumo) {
             $this->receta[] = [
@@ -106,27 +105,23 @@ class ProductosComponent extends Component
         $this->precio = '';
         $this->categoria_id = '';
         $this->producto_id = null;
-        
-        // Limpiar Ofertas
         $this->es_oferta = false;
-        $this->precio_oferta = null; // <--- RESETEAR
-        
-        // Limpiar Imagen
+        $this->precio_oferta = null;
         $this->imagen = null;
         $this->imagen_actual = null;
         $this->activo = true;
-
-        // Limpiar Receta
         $this->receta = [];
         $this->insumoSeleccionado = '';
         $this->cantidadInsumo = '';
     }
 
+    // --- LÓGICA DE INSUMOS ---
     public function agregarInsumo()
     {
         if ($this->insumoSeleccionado && $this->cantidadInsumo > 0) {
             $insumoObj = Insumo::find($this->insumoSeleccionado);
             if($insumoObj) {
+                // Evitar duplicados visuales
                 foreach($this->receta as $item) {
                     if($item['id'] == $insumoObj->id) return; 
                 }
@@ -149,34 +144,31 @@ class ProductosComponent extends Component
         $this->receta = array_values($this->receta);
     }
 
+    // --- GUARDAR ---
     public function store()
     {
-        // Validaciones
         $rules = [
             'nombre' => 'required',
             'precio' => 'required|numeric',
             'categoria_id' => 'required',
-            'imagen' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp,avif|max:5000',
-            // Si es oferta, el precio oferta es obligatorio y debe ser numérico
+            'imagen' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp,avif|max:5000', // Max 5MB
             'precio_oferta' => $this->es_oferta ? 'required|numeric' : 'nullable',
         ];
 
         $this->validate($rules);
 
-        // Datos a guardar
         $data = [
             'nombre' => $this->nombre,
             'precio' => $this->precio,
             'categoria_id' => $this->categoria_id,
             'activo' => $this->activo ? 1 : 0,
-            
-            // Lógica Oferta
             'es_oferta' => $this->es_oferta ? 1 : 0,
-            'precio_oferta' => $this->es_oferta ? $this->precio_oferta : null, // Guardar o anular
+            'precio_oferta' => $this->es_oferta ? $this->precio_oferta : null,
         ];
 
-        // --- LÓGICA DE IMAGEN ---
+        // Subir Imagen
         if ($this->imagen) {
+            // Si editamos, borramos la vieja para no llenar el servidor de basura
             if ($this->producto_id) {
                 $prodAntiguo = Producto::find($this->producto_id);
                 if ($prodAntiguo && $prodAntiguo->imagen) {
@@ -196,7 +188,7 @@ class ProductosComponent extends Component
             $mensaje = 'Producto creado correctamente.';
         }
 
-        // SINCRONIZAR RECETA
+        // Guardar Receta
         $datosSync = [];
         foreach ($this->receta as $item) {
             $datosSync[$item['id']] = ['cantidad_requerida' => $item['cantidad']];
@@ -207,31 +199,33 @@ class ProductosComponent extends Component
         $this->closeModal();
     }
 
-    // --- FUNCIÓN DELETE CORREGIDA (EVITA EL ERROR SQL) ---
+    // --- BORRADO INTELIGENTE (TU SOLUCIÓN) ---
     public function delete($id)
     {
         $producto = Producto::find($id);
         
         if(!$producto) return;
 
-        // 1. Verificar si tiene ventas asociadas
+        // 1. Preguntamos: ¿Este producto se ha vendido alguna vez?
         $tieneVentas = DetalleVenta::where('producto_id', $id)->exists();
 
         if ($tieneVentas) {
-            // OPCIÓN A: TIENE HISTORIAL -> SOLO DESACTIVAR
+            // CASO A: SÍ TIENE VENTAS
+            // No lo borramos. Solo lo ocultamos.
+            // Así el PDF histórico lo encuentra, pero el menú nuevo no.
             $producto->update(['activo' => false]);
-            session()->flash('message', '⚠️ El producto tiene ventas registradas. Se ha DESACTIVADO para no romper el historial.');
-        } else {
-            // OPCIÓN B: ES NUEVO -> BORRAR DE VERDAD
             
-            // Borrar imagen si existe
+            session()->flash('message', '⚠️ El producto tiene historial de ventas. Se ha DESACTIVADO (Oculto) para no romper las facturas antiguas.');
+        } else {
+            // CASO B: ES NUEVO (Nunca se vendió)
+            // Borramos todo sin miedo.
+            
             if($producto->imagen){
                 Storage::disk('public')->delete($producto->imagen);
             }
 
-            // Borrar receta y producto
-            $producto->insumos()->detach(); 
-            $producto->delete();
+            $producto->insumos()->detach(); // Borrar receta
+            $producto->delete(); // Borrar producto
             
             session()->flash('message', 'Producto eliminado definitivamente del sistema.');
         }
